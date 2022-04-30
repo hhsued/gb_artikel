@@ -1,0 +1,180 @@
+﻿@page "/"
+@using System.Linq
+@using System.Text.RegularExpressions
+@using System.Net.Mail
+@using System.Net
+@using System.Net.Mime
+@inject ISnackbar Snackbar
+
+<MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="onSendArticle">Absenden</MudButton>
+<MudCard Class="ma-2 pa-2" Elevation="2">
+  <MudCardHeader>
+    <CardHeaderContent>
+      <MudText Typo="Typo.h6">Beitrag für den Gemeindebrief im Bezirk Hamburg-Süd</MudText>
+    </CardHeaderContent>
+    <CardHeaderActions>
+      <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Default" />
+    </CardHeaderActions>
+  </MudCardHeader>
+  <MudCardContent>
+    <MudCard>
+      <MudCardHeader>
+        <CardHeaderContent><MudText Typo="Typo.body1">Für welche Gemeinde soll der Beitrag sein?</MudText></CardHeaderContent>
+      </MudCardHeader>
+      <MudCardContent>
+        <MudSelect T="string" Label="Für Gemeinde" AnchorOrigin="Origin.BottomCenter" ValueChanged="onCongregationChanged" Error="@(_article.Congregation == string.Empty ? true : false)">
+          <MudSelectItem Value="@("Bezirk")" />
+          <MudSelectItem Value="@("Buxtehude")" />
+          <MudSelectItem Value="@("Hamburg-Finkenwerder")" />
+          <MudSelectItem Value="@("Hamburg-Harburg")" />
+          <MudSelectItem Value="@("Hamburg-Neugraben")" />
+          <MudSelectItem Value="@("Hamburg-Sinstorf")" />
+          <MudSelectItem Value="@("Nordheide")" />
+          <MudSelectItem Value="@("Rotenburg/Wümme")" />
+          <MudSelectItem Value="@("Winsen/Luhe")" />
+        </MudSelect>
+      </MudCardContent>
+    </MudCard>
+    <MudDivider />
+    @if (_article.Congregation != string.Empty)
+    {
+      <br />
+      @if (Mode.IsImplementd)
+      {
+        <MudCard>
+          <MudCardContent>
+            <MudGrid>
+              <MudItem xs="6">
+                <MudButton FullWidth="true" Variant="Variant.Filled">Artikel hier erfassen</MudButton>
+              </MudItem>
+              <MudItem xs="6">
+                <MudButton FullWidth="true" Variant="Variant.Filled">Artikel als Anhang verschicken</MudButton>
+              </MudItem>
+            </MudGrid>
+
+          </MudCardContent>
+        </MudCard>
+      }
+      <MudGrid Class="mt-8">
+        <MudItem xs="12" sm="6" md="6">
+          <MudCard Elevation="25" Class="rounded-lg pb-4">
+            <MudCardHeader>
+              <CardHeaderContent>
+                <MudText Typo="Typo.h5" Align="Align.Center">Text</MudText>
+              </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+              <MudTextField @bind-Value="_article.Headline" Label="Überschrift" Variant="Variant.Text" Error="@(_article.Headline.Length > 3 ? false : true)"></MudTextField>
+              <br />
+              <MudDivider />
+              <br />
+              <MudText Typo="Typo.body1">Wo darf dieser Artikel veröffentlicht werden?</MudText>
+              <MudSelect T="string"
+                       Label="Veröffentlichungsrechte"
+                       MultiSelection="true"
+                       @bind-Value="value"
+                       @bind-SelectedValues="_article.PublishingRights">
+                @foreach (var _publishingRight in _availablePublishingRights)
+                {
+                  <MudSelectItem T="string" Value="@_publishingRight">@_publishingRight</MudSelectItem>
+                }
+              </MudSelect>
+              <br />
+              <MudDivider />
+              <br />
+              <SfRichTextEditor>
+                <RichTextEditorToolbarSettings Items="@Tools" />
+              </SfRichTextEditor>
+            </MudCardContent>
+          </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="6">
+          <MudCard Elevation="25" Class="rounded-lg pb-4">
+            <MudCardHeader>
+              <CardHeaderContent>
+                <MudText Typo="Typo.h5" Align="Align.Center">Bilder</MudText>
+              </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+              <InputFile id="fileInput" OnChange="onUploadFiles" hidden multiple />
+              <MudButton FullWidth="true" HtmlTag="label" Variant="Variant.Text" StartIcon="@Icons.Filled.Image" for="fileInput">Bilder wählen</MudButton>
+              @if (_article.Photos.Count() > 0)
+              {
+                <MudExpansionPanels Dense="true">
+                  <MudExpansionPanel Text='@("Bilder (" + _article.Photos.Count() + " Stück)")'>
+                    <MudList Dense="true">
+                      @foreach (var _photo in _article.Photos.Select((value, index) => new { Value = value, Index = index }))
+                      {
+                        <MudListItem Icon="@Icons.Filled.Image">
+                          <MudText Typo="Typo.h6">@_photo.Value.File.Name</MudText>
+                          <MudText>Größe: <code>@_photo.Value.File.Size bytes</code></MudText>
+                          <MudTextField Label="Fotograf" Value="@_photo.Value.Photographer" />
+                          <MudTextField Label="Bildunterschrift" Value="@_photo.Value.Caption" />
+                          <hr />
+                          <MudText Typo="Typo.body1">Wo darf dieses Bild veröffentlicht werden?</MudText>
+                          <MudSelect T="string" Label="Veröffentlichungsrechte" MultiSelection="true" @bind-Value="value" @bind-SelectedValues="_photo.Value.PublishingRights">
+                            @foreach (var _publishingRight in _availablePublishingRights)
+                            {
+                              <MudSelectItem T="string" Value="@_publishingRight">@_publishingRight</MudSelectItem>
+                            }
+                          </MudSelect>
+                          <br />
+                          <MudButton FullWidth="true" OnClick="(() => onRemovePhoto(_photo.Index))">Löschen</MudButton>
+                          <MudDivider />
+                        </MudListItem>
+                      }
+                    </MudList>
+                  </MudExpansionPanel>
+                </MudExpansionPanels>
+              }
+            </MudCardContent>
+          </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="12">
+          <MudCard Elevation="25" Class="rounded-lg pb-4">
+            <MudCardHeader>
+              <CardHeaderContent>
+                <MudText Typo="Typo.h5" Align="Align.Center">Weiteres....</MudText>
+              </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+              <MudTextField @bind-Value="_article.Sender"
+                          Label="Absender"
+                          Variant="Variant.Text"
+                          Error="@_senderHasError"
+                          OnBlur="onCheckSenderError"
+                          HelperText='@(_senderHasError ? "Keine gültige EMail-Adresse" : "EMail-Adresse des Absenders" )'></MudTextField>
+              <MudTextField T="string" Label="Allgemeine Hinweise" Variant="Variant.Text" Text="@_article.Notes" Lines="5" />
+              <InputFile id="alternativeFiles" OnChange="onUploadAlternativeFiles" hidden multiple />
+              <MudButton FullWidth="true" HtmlTag="label" Variant="Variant.Text" StartIcon="@Icons.Filled.Attachment" for="alternativeFiles">Dateien anfügen</MudButton>
+              @if (files != null)
+              {
+                <MudText Typo="@Typo.h6">@files.Count() File@(files.Count() == 1 ? "" : "s"):</MudText>
+                <MudList>
+                  @foreach (var file in files)
+                  {
+                    <MudListItem Icon="@Icons.Filled.AttachFile" @key="@file">
+                      @file.Name <code>@file.Size bytes</code>
+                    </MudListItem>
+                  }
+                </MudList>
+              }
+            </MudCardContent>
+          </MudCard>
+        </MudItem>
+      </MudGrid>
+    }
+  </MudCardContent>
+  <MudCardActions>
+    <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="onSendArticle">Absenden</MudButton>
+  </MudCardActions>
+</MudCard>
+
+@code {
+  [Inject] private IDialogService DialogService { get; set; }
+
+  protected override void OnInitialized()
+  {
+    base.OnInitialized();
+  }
+}
